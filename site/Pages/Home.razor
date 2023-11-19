@@ -1,0 +1,68 @@
+﻿@page "/"
+@using System.ComponentModel.DataAnnotations
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+
+<FluentGrid Justify="JustifyContent.Center">
+     <FluentGridItem xs="12" Justify="JustifyContent.Center">
+        <PageTitle>Geneate Service Mocks</PageTitle>
+    </FluentGridItem>
+
+     <FluentGridItem xs="12" Justify="JustifyContent.Center">
+    <h1>Generate Mocks for your services using AI</h1>
+    </FluentGridItem>
+
+     <FluentGridItem xs="12" Justify="JustifyContent.Center">
+        <FluentTextField @bind-Value="info.ServiceName">Name of Service:</FluentTextField>
+        <FluentTextField @bind-Value="info.Location">Code Location:</FluentTextField>
+        <FluentSelect Id="language" @bind-Value="info.Language" TOption="string">
+            <FluentOption Value="">Select Language ...</FluentOption>
+            <FluentOption Value="csharp">c#</FluentOption>
+            <FluentOption Value="javascript">Javascript</FluentOption>
+            <FluentOption Value="typescript">Typescript</FluentOption>
+        </FluentSelect>
+    </FluentGridItem>
+
+    <FluentGridItem xs="12" Justify="JustifyContent.Center">
+    <FluentButton Appearance="Appearance.Accent" @onclick="GetMock">Generate</FluentButton>
+    </FluentGridItem>
+
+    <FluentGridItem xs="12" Justify="JustifyContent.Center">
+        <FluentCard width="400px">
+            <h2>Mock</h2>
+            <p>@mock</p>
+        </FluentCard>
+    </FluentGridItem>
+
+
+</FluentGrid>
+
+@code {
+    public string ServiceName { get; set; }
+    public string GithubUrl { get; set; }
+    public string language = "csharp";
+    public string mock = "Click Generate to get a mock";
+
+    public MockGeneratorInfo info = new MockGeneratorInfo();
+
+    public async Task GetMock()
+    {
+        var response = await Http.GetFromJsonAsync<MockGeneratorResponse>($"/api/generate?service-name={info.ServiceName}");
+        mock = response.Response;
+    }
+
+    public class MockGeneratorInfo
+    {
+        [Required]
+        public string ServiceName { get; set; }
+        public string Location { get; set; }
+        public string GithubUrl { get; set; }
+        public string Language { get; set; }
+    }
+
+    public class MockGeneratorResponse
+    {
+        public string Response { get; set; }
+    }
+}

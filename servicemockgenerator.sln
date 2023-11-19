@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.32126.317
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Site", "site\BlazorBasic.csproj", "{A789CAE2-99A1-4D0D-B492-6FB0A727E94D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Site", "site\site.csproj", "{A789CAE2-99A1-4D0D-B492-6FB0A727E94D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "api", "api\api.csproj", "{590DDAFD-50F8-4B51-8678-26AA3B826597}"
 EndProject
