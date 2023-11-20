@@ -21,6 +21,7 @@ var host = new HostBuilder()
             .ConfigureResource(resource => resource.AddService("servicemockgenerator-backend"))
             .WithTracing(tracerProvider => {
                 tracerProvider.AddSource("api");
+                tracerProvider.AddHttpClientInstrumentation();
                 tracerProvider.AddOtlpExporter(o => {
                     o.Endpoint = new Uri("https://api.eu1.honeycomb.io:443");
                     o.Headers = $"x-honeycomb-team={honeycombapikey}";
@@ -38,10 +39,12 @@ public class OpenAISettings
 
 internal class OpenTelemetryMiddleware : IFunctionsWorkerMiddleware
 {
-    public Task Invoke(FunctionContext context, FunctionExecutionDelegate next)
+    public async Task Invoke(FunctionContext context, FunctionExecutionDelegate next)
     {
         using var activity = DiagnosticConfig.Source.StartActivity(context.FunctionDefinition.Name);
-        return next(context);
+        await next(context);
+        activity?.Dispose();
+        context.InstanceServices.GetRequiredService<TracerProvider>().ForceFlush();
     }
 }
 
