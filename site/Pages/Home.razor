@@ -13,37 +13,33 @@
     <h1>Generate Mocks for your services using AI</h1>
     </FluentGridItem>
 
-     <FluentGridItem xs="12" Justify="JustifyContent.Center">
-        <FluentGrid Justify="JustifyContent.Center">
-            <FluentGridItem xs="12" sm="6" md="4" lg="3">
-                <FluentTextField @bind-Value="info.ServiceName">Name of Service:</FluentTextField>
-            </FluentGridItem>
-            <FluentGridItem xs="12" sm="6" md="4" lg="3">
-                <FluentTextField @bind-Value="info.Location">Code Location:</FluentTextField>
-            </FluentGridItem>
-            <FluentGridItem xs="12" sm="6" md="4" lg="3">
-                <FluentSelect Id="language" @bind-Value="info.Language" TOption="string">
-                    <FluentOption Value="">Select Language ...</FluentOption>
-                    <FluentOption Value="csharp">c#</FluentOption>
-                    <FluentOption Value="javascript">Javascript</FluentOption>
-                    <FluentOption Value="typescript">Typescript</FluentOption>
-                </FluentSelect>
-            </FluentGridItem>
-        </FluentGrid>
+     <FluentGridItem xs="0" md="3" Justify="JustifyContent.Center">
+    </FluentGridItem>
+
+     <FluentGridItem xs="12" md="6" Justify="JustifyContent.Center">
+        <FluentTextField style="width: 100%" @bind-Value="info.Location">OpenApi Spec:</FluentTextField>
+    </FluentGridItem>
+
+     <FluentGridItem xs="0" md="3" Justify="JustifyContent.Center">
     </FluentGridItem>
 
     <FluentGridItem xs="12" Justify="JustifyContent.Center">
-    <FluentButton Appearance="Appearance.Accent" @onclick="GetMock">Generate</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" @onclick="GetMock">Generate</FluentButton>
     </FluentGridItem>
 
-    <FluentGridItem xs="12" Justify="JustifyContent.Center">
-        <FluentCard width="400px">
+     <FluentGridItem xs="0" md="3" Justify="JustifyContent.Center">
+    </FluentGridItem>
+
+    <FluentGridItem xs="12" md="6" Justify="JustifyContent.Center">
+        <FluentCard style="width: 100%">
             <h2>Mock</h2>
             <FluentProgress @bind-Visible="RequestRunning"></FluentProgress>
-                <p>@mock</p>
+                <p>@MessagePanelText</p>
         </FluentCard>
     </FluentGridItem>
 
+     <FluentGridItem xs="0" md="3" Justify="JustifyContent.Center">
+    </FluentGridItem>
 
 </FluentGrid>
 
@@ -51,25 +47,63 @@
     public string ServiceName { get; set; }
     public string GithubUrl { get; set; }
     public string language = "csharp";
-    public string mock = "Click Generate to get a mock";
+    public string MessagePanelText = "Click Generate to get a mock";
 
     public MockGeneratorInfo info = new MockGeneratorInfo();
     public bool RequestRunning { get; set; } = false;
 
     public async Task GetMock()
     {
+        var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        await Task.WhenAll(
+            GetGeneratorResponseAndUpdateMessagePanel(timer),
+            RunTimerAndPopulateMessagePanel(timer));
+    }
+
+    public async Task GetGeneratorResponseAndUpdateMessagePanel(PeriodicTimer timer)
+    {
         try {
             RequestRunning = true;
-            mock = "Generating Mock ...";
-            var response = await Http.GetFromJsonAsync<MockGeneratorResponse>($"/api/generate?service-name={info.ServiceName}");
-            mock = response.Response;
+            MessagePanelText = "Starting ...";
+            var response = await Http.GetFromJsonAsync<MockGeneratorResponse>($"/api/generate?open-api-url={info.Location}");
+            if (response.Error != null)
+                MessagePanelText = response.Error;
+            else 
+                MessagePanelText = response.Response;
         } catch (Exception ex) {
-            mock = ex.Message;
+            MessagePanelText = ex.Message;
         }
         finally {
             RequestRunning = false;
+            timer.Dispose();
         }
     }
+
+    public async Task RunTimerAndPopulateMessagePanel(PeriodicTimer timer)
+    {
+        var messagesStack = new Stack<string>(Messages);
+        while (await timer.WaitForNextTickAsync())
+        {
+            if (messagesStack.Count > 0)
+            {
+                MessagePanelText = messagesStack.Pop();
+                StateHasChanged();
+            }
+            else
+                break;
+        }
+    }
+
+    private List<string> Messages = new List<string> {
+        "Generating Mocks",
+        "Understanding OpenApi Spec",
+        "Analzing Endpoints",
+        "Finding APIs",
+        "Got the document, now analyzing it ...",
+        "Still downloading the OpenAPI document, please wait ...",
+        "Downloading the OpenAPI document",
+    };
+
 
     public class MockGeneratorInfo
     {
@@ -83,5 +117,6 @@
     public class MockGeneratorResponse
     {
         public string Response { get; set; }
+        public string Error { get; set; }
     }
 }

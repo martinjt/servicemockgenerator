@@ -5,6 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults(worker => {
@@ -25,6 +27,10 @@ var host = new HostBuilder()
                     o.Headers = $"x-honeycomb-team={honeycombapikey}";
                 });
             });
+        services.AddSingleton(_ => new DeserializerBuilder()
+            .WithNamingConvention(UnderscoredNamingConvention.Instance)
+            .IgnoreUnmatchedProperties()
+            .Build());
     })
     .Build();
 
