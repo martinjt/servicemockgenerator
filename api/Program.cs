@@ -14,9 +14,7 @@ var host = new HostBuilder()
     {
         var honeycombapikey = context.Configuration["HoneycombApiKey"];
         services.Configure<OpenAISettings>(context.Configuration.GetSection("OpenAI"));
-        services.AddSingleton<MockGenerator>();
         services.AddHttpClient();
-        services.AddHttpClient<MockGenerator>();
         services.AddOpenTelemetry()
             .ConfigureResource(resource => resource.AddService("servicemockgenerator-backend"))
             .WithTracing(tracerProvider => {
