@@ -77,6 +77,7 @@ public class MockGenerator
         }
 
         _httpClient.DefaultRequestHeaders.Add("Authorization", "Bearer " + _openAISettings.Value.Key);
+        _httpClient.Timeout = TimeSpan.FromSeconds(50);
 
         HttpResponseMessage generateResponse;
         try

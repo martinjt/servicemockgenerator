@@ -9,7 +9,8 @@ using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
 var host = new HostBuilder()
-    .ConfigureFunctionsWorkerDefaults(worker => {
+    .ConfigureFunctionsWorkerDefaults(worker =>
+    {
         worker.UseMiddleware<OpenTelemetryMiddleware>();
     })
     .ConfigureServices((context, services) =>
@@ -19,10 +20,12 @@ var host = new HostBuilder()
         services.AddHttpClient();
         services.AddOpenTelemetry()
             .ConfigureResource(resource => resource.AddService("servicemockgenerator-backend"))
-            .WithTracing(tracerProvider => {
+            .WithTracing(tracerProvider =>
+            {
                 tracerProvider.AddSource("api");
                 tracerProvider.AddHttpClientInstrumentation();
-                tracerProvider.AddOtlpExporter(o => {
+                tracerProvider.AddOtlpExporter(o =>
+                {
                     o.Endpoint = new Uri("https://api.eu1.honeycomb.io:443");
                     o.Headers = $"x-honeycomb-team={honeycombapikey}";
                 });
@@ -46,13 +49,25 @@ internal class OpenTelemetryMiddleware : IFunctionsWorkerMiddleware
     public async Task Invoke(FunctionContext context, FunctionExecutionDelegate next)
     {
         using var activity = DiagnosticConfig.Source.StartActivity(context.FunctionDefinition.Name);
-        await next(context);
-        activity?.Dispose();
-        context.InstanceServices.GetRequiredService<TracerProvider>().ForceFlush();
+        try
+        {
+            await next(context);
+        }
+        catch (Exception ex)
+        {
+            activity?.RecordException(ex);
+            activity?.SetStatus(ActivityStatusCode.Error);
+            throw;
+        }
+        finally
+        {
+            activity?.Dispose();
+            context.InstanceServices.GetRequiredService<TracerProvider>().ForceFlush();
+        }
     }
 }
 
 internal static class DiagnosticConfig
 {
-    public static ActivitySource Source = new ActivitySource("api"); 
+    public static ActivitySource Source = new ActivitySource("api");
 }
