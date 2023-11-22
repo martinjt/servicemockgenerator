@@ -57,11 +57,6 @@ internal class OpenTelemetryMiddleware : IFunctionsWorkerMiddleware
     public async Task Invoke(FunctionContext context, FunctionExecutionDelegate next)
     {
         using var activity = DiagnosticConfig.Source.StartActivity(context.FunctionDefinition.Name);
-        context.CancellationToken.Register(() =>
-        {
-            activity?.Dispose();
-            context.InstanceServices.GetRequiredService<TracerProvider>().ForceFlush();
-        });
 
         try
         {
