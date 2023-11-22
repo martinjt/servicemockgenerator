@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
+using OpenTelemetry;
 using OpenTelemetry.Trace;
 
 namespace Smg.Functions;
@@ -11,8 +12,12 @@ namespace Smg.Functions;
 /// </summary>
 public class OpenAiHttpClient(HttpClient httpClient, IOptions<OpenAISettings> settings)
 {
+    public static ActivitySource OpenAiSource = new("OpenAI-Client");
     public async Task<OpenApiCompletionResponse?> GetChatCompletionForApi(string title, string description)
     {
+        using var activity = OpenAiSource.StartActivity("Get Chat Completions", ActivityKind.Client);
+        using var suppressHttpClientInstrumentation = SuppressInstrumentationScope.Begin();
+
         HttpResponseMessage generateResponse;
         try
         {
@@ -29,24 +34,26 @@ public class OpenAiHttpClient(HttpClient httpClient, IOptions<OpenAISettings> se
                     }
                 ]
             });
+            activity?.SetHttpInfo(generateResponse);
+            activity?.SetTag("http.status_code", generateResponse.StatusCode);
 
             if (!generateResponse.IsSuccessStatusCode)
             {
-                Activity.Current?.SetStatus(ActivityStatusCode.Error);
-                Activity.Current?.SetTag("error.message", "Failed to generate mock");
-                Activity.Current?.SetTag("error.type", "OpenAIError");
-                Activity.Current?.SetTag("error.openai_response", await generateResponse.Content.ReadAsStringAsync());
+                activity?.SetStatus(ActivityStatusCode.Error);
+                activity?.SetTag("error.message", "Failed to generate mock");
+                activity?.SetTag("error.type", "OpenAIError");
+                activity?.SetTag("error.openai_response", await generateResponse.Content.ReadAsStringAsync());
                 return null;
             }
 
             var completionResponse = await generateResponse.Content.ReadFromJsonAsync<OpenApiCompletionResponse>();
-            Activity.Current?.SetOpenAICosts(completionResponse?.Usage);
+            activity?.SetOpenAICosts(completionResponse?.Usage);
             return completionResponse;
         }
         catch (Exception ex)
         {
-            Activity.Current?.SetStatus(ActivityStatusCode.Error);
-            Activity.Current?.RecordException(ex);
+            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.RecordException(ex);
             return null;
         }
     }
@@ -92,6 +99,14 @@ public static class ActivityExtensions
         activity.SetTag("openai.cost.prompt_tokens", usage.PromptTokens);
         activity.SetTag("openai.cost.completion_tokens", usage.CompletionTokens);
         activity.SetTag("openai.cost.total_tokens", usage.TotalTokens);
+    }
+
+    public static void SetHttpInfo(this Activity activity, HttpResponseMessage message)
+    {
+        activity.SetTag("http.status_code", message.StatusCode);
+        activity.SetTag("http.status_text", message.ReasonPhrase);
+        activity.SetTag("http.url", message.RequestMessage?.RequestUri?.ToString());
+        activity.SetTag("http.method", message.RequestMessage?.Method?.ToString());
     }
 }
 
