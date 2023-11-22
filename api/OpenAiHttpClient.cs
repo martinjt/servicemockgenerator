@@ -29,7 +29,7 @@ public class OpenAiHttpClient(HttpClient httpClient, IOptions<OpenAISettings> se
                     }
                 ]
             });
-        Console.WriteLine("Called OpenAI");
+
             if (!generateResponse.IsSuccessStatusCode)
             {
                 Activity.Current?.SetStatus(ActivityStatusCode.Error);
