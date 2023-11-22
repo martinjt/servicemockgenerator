@@ -1,10 +1,13 @@
 using System.Diagnostics;
+using System.Net.Http.Headers;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Middleware;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Smg.Functions;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -17,7 +20,13 @@ var host = new HostBuilder()
     {
         var honeycombapikey = context.Configuration["HoneycombApiKey"];
         services.Configure<OpenAISettings>(context.Configuration.GetSection("OpenAI"));
-        services.AddHttpClient();
+        services.AddHttpClient<OpenAiHttpClient>((sp, client) => {
+            var settings = sp.GetRequiredService<IOptions<OpenAISettings>>();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", settings.Value.Key);
+            client.Timeout = TimeSpan.FromSeconds(60);
+            client.BaseAddress = new Uri("https://api.openai.com");
+        });
+
         services.AddOpenTelemetry()
             .ConfigureResource(resource => resource.AddService("servicemockgenerator-backend"))
             .WithTracing(tracerProvider =>
@@ -39,16 +48,16 @@ var host = new HostBuilder()
 
 host.Run();
 
-public class OpenAISettings
-{
-    public string Key { get; set; }
-}
-
 internal class OpenTelemetryMiddleware : IFunctionsWorkerMiddleware
 {
     public async Task Invoke(FunctionContext context, FunctionExecutionDelegate next)
     {
         using var activity = DiagnosticConfig.Source.StartActivity(context.FunctionDefinition.Name);
+        context.CancellationToken.Register(() => {
+            activity?.Dispose();
+            context.InstanceServices.GetRequiredService<TracerProvider>().ForceFlush();
+        });
+
         try
         {
             await next(context);
@@ -70,4 +79,11 @@ internal class OpenTelemetryMiddleware : IFunctionsWorkerMiddleware
 internal static class DiagnosticConfig
 {
     public static ActivitySource Source = new ActivitySource("api");
+}
+
+public class OpenAISettings
+{
+    public string SystemPrompt { get; set; } = "You're a sarcastic assistant that mocks an API for just existing in the world using some of it's information in your response";
+    public string Key { get; set; }
+    public string BaseAddress { get; set; } = null!;
 }
